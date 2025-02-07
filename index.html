@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change a point color</title>
+  </head>
+
+  <body onload="main()">
+    <canvas id="webgl" width="400" height="400">
+    Please use a browser that supports "canvas"
+    </canvas>
+
+    <p>
+      
+    <p id="numdot"> XXX </p>
+
+
+    <p>
+      Move Neck <input type="range" id="jointSlide" min="-15" max="15" value="0" class="slider">
+      Animation:
+      <button type="button" id="animateOn">ON</button>
+      <button type="button" id="animateOff">OFF</button>
+    <p>
+      Move Head <input type="range" id="headSlide" min="-12" max="15" value="0" class="slider">
+    <p>
+      Camera Angle <input type="range" id="angleSlide" min="0" max="360" value="15" class="slider">
+    </p>
+
+    <script src="lib/cuon-matrix.js"></script>
+    <script src="lib/webgl-utils.js"></script>
+    <script src="lib/cuon-utils.js"></script>
+    <script src="lib/webgl-debug.js"></script>
+    <script src="Point.js"></script>
+    <script src="Triangle.js"></script>
+    <script src="Circle.js"></script>
+    <script src="Cube.js"></script>
+    <script src="Cylinder.js"></script>
+    <script src="BlockyAnimal.js"></script>
+
+  </body>
+  
+</html>
