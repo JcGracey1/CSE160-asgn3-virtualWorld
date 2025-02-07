@@ -127,6 +127,11 @@ function connectVariablestoGLSL() {
     return;
   }
 
+  u_whichTexture = gl.getUniformLocation(gl.program, "u_whichTexture");
+  if(!u_whichTexture){
+    console.log('Failed to get the storage location of u_whichTexture');
+  }
+
   var identityM = new Matrix4();
   gl.uniformMatrix4fv(u_ModelMatrix, false, identityM.elements);
   // u_Size = gl.getUniformLocation(gl.program, 'u_Size');
@@ -171,7 +176,7 @@ function initTextures(){
   }
 
   image.onload = function(){ sendTextureToTEXTURE0(image); };
-  image.src = 'sampleTexture.png';
+  image.src = 'sky.jpg';
 
   // Add more texture loading
   return true;
@@ -188,10 +193,11 @@ function sendTextureToTEXTURE0(image){
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
   gl.uniform1i(u_Sampler0, 0);
 
-  console.log('Texture loaded');
+  //console.log('Texture loaded');
 }
 
 
@@ -208,7 +214,7 @@ function main() {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   //gl.viewport(0, 0, canvas.width, canvas.height);
 
-  drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
+  //drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
 
 
   // Clear <canvas>
@@ -241,11 +247,11 @@ function renderAllShapes() {
 
   var testCube = new Cube();
   testCube.color = [1,0,0,1];
-  testCube.matrix.translate(.2,.2,0);
+  testCube.matrix.translate(-.5,-.5,0);
   testCube.render();
 
-  drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
-
+  //drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
+  //drawTriangle([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
 
 
 }
