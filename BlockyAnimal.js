@@ -176,7 +176,7 @@ function initTextures(){
   }
 
   image.onload = function(){ sendTextureToTEXTURE0(image); };
-  image.src = 'sky.jpg';
+  image.src = 'sample_wood.jpg';
 
   // Add more texture loading
   return true;
@@ -193,7 +193,7 @@ function sendTextureToTEXTURE0(image){
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
   gl.uniform1i(u_Sampler0, 0);
 
@@ -253,6 +253,6 @@ function renderAllShapes() {
   //drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
   //drawTriangle([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
 
-
+  requestAnimationFrame(renderAllShapes);
 }
 
