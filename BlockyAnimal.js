@@ -146,8 +146,6 @@ function connectVariablestoGLSL() {
 // Globals related to UI elements
 let g_selectedColor = [1.0, 1.0, 1.0, 1.0];
 
-
-
 let g_globalAngle = 0;
 //let g_jointAngle = 0;
 
@@ -213,9 +211,7 @@ function main() {
   // Specify the color for clearing <canvas>
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   //gl.viewport(0, 0, canvas.width, canvas.height);
-
-  //drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
-
+  document.onkeydown = keydown;
 
   // Clear <canvas>
  // requestAnimationFrame(tick);
@@ -224,17 +220,32 @@ function main() {
 
 }
 
+// change this to be WSAD
+function keydown(e){
+  if(e.keyCode == 39){
+    g_eye[0] += 0.2;
+  } else if(e.keyCode == 37){
+    g_eye[0] -= 0.2;
+  }
+}
+// controls for camera:
+// use vector class instead of array?
+var g_eye=[0,0,3];
+var g_at=[0,0,-100];
+var g_up=[0,1,0];
+
 
 function renderAllShapes() {
   //console.log("Rendering all shapes");
 
   //var startTime = performance.now();
   var projMat = new Matrix4();
-  projMat.setPerspective(90, canvas.width/canvas.height, .1, 100);
+  // first num: fov essentially
+  projMat.setPerspective(60, canvas.width/canvas.height, .1, 100);
   gl.uniformMatrix4fv(u_ProjectionMatrix, false, projMat.elements);
 
   var viewMat = new Matrix4();
-  viewMat.setLookAt(0, 0, 1,  0, 0, -100,  0, 1, 0);
+  viewMat.setLookAt(g_eye[0], g_eye[1], g_eye[2], g_at[0], g_at[1], g_at[2], g_up[1], g_up[1], g_up[2]);
   gl.uniformMatrix4fv(u_ViewMatrix, false, viewMat.elements);
 
   var globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1,0);
@@ -256,3 +267,33 @@ function renderAllShapes() {
   requestAnimationFrame(renderAllShapes);
 }
 
+
+
+/*
+calculating new EYE and AT
+d = at-eye;
+d = d.normalize();
+Forward:
+eye = eye + d
+at = at + d
+backward is same but -d
+
+'A' = left{
+d = at - eye
+left = d x up; (d.cross(up)?)
+}
+for right->switch d to -d for opposite direction
+*/
+
+/*
+Turning:
+atp=dir=at eye
+r = sqrt((dir.x)^2 + (dir.y)^2)
+theta = arctan(dir.y/dir.x);
+theta = theta + angle;
+newx = r*cos(theta);
+newy = r*sin(theta);
+d= (newx, newy);
+AT = eye + d;
+
+*/
