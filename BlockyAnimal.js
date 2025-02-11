@@ -199,7 +199,7 @@ function sendTextureToTEXTURE0(image){
 }
 
 
-
+let g_camera;
 function main() {
 	setupWebGL();
 	connectVariablestoGLSL();
@@ -211,6 +211,8 @@ function main() {
   // Specify the color for clearing <canvas>
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   //gl.viewport(0, 0, canvas.width, canvas.height);
+
+  g_camera = new Camera();
   document.onkeydown = keydown;
 
   // Clear <canvas>
@@ -218,35 +220,86 @@ function main() {
 
   renderAllShapes();
 
+
 }
 
 // change this to be WSAD
-function keydown(e){
-  if(e.keyCode == 39){
-    g_eye[0] += 0.2;
-  } else if(e.keyCode == 37){
-    g_eye[0] -= 0.2;
+function keydown(e) {
+  switch (e.key) {
+    case 'w':
+    case 'W':
+      g_camera.forward();
+      break;
+    case 's':
+    case 'S':
+      g_camera.backward();
+      break;
+    case 'a':
+    case 'A':
+      g_camera.moveLeft();
+      break;
+    case 'd':
+    case 'D':
+      g_camera.moveRight();
+      break;
+    case 'q':
+    case 'Q':
+      g_camera.panLeft();
+      break;
+    case 'e':
+    case 'E':
+      g_camera.panRight();
+      break;
   }
+  // TODO: When user hits Q call camera.panLeft()
+  // TODO: When user hits E call camera.panRight()
 }
-// controls for camera:
-// use vector class instead of array?
-var g_eye=[0,0,3];
-var g_at=[0,0,-100];
-var g_up=[0,1,0];
 
+
+
+
+var g_map=[
+  
+];
+
+function drawMap(){
+  for(x=0;x<32;x++){
+    for(y=0;y<32;y++){
+      if(x<1 || x==31 || y==0 || y==31){
+        var cube = new Cube();
+        cube.color = [1.0, 0.0, 0.0, 1.0];
+        cube.matrix.translate(0,-.75,0);
+        cube.matrix.scale(.5,.5,.5);
+        cube.matrix.translate(x-16, 0, y-16);
+        //cube.renderFast();
+      }
+    }
+  }
+
+}
+
+var g_eye = [1, 0, 3];
+var g_at = [0, 0, -1000];
+var g_up = [0, 1, 0];
 
 function renderAllShapes() {
   //console.log("Rendering all shapes");
 
   //var startTime = performance.now();
-  var projMat = new Matrix4();
-  // first num: fov essentially
-  projMat.setPerspective(60, canvas.width/canvas.height, .1, 100);
-  gl.uniformMatrix4fv(u_ProjectionMatrix, false, projMat.elements);
+  // var projMat = new Matrix4();
+  // // first num: fov essentially
+  // projMat.setPerspective(60, canvas.width/canvas.height, .1, 100);
+  // gl.uniformMatrix4fv(u_ProjectionMatrix, false, projMat.elements);
 
-  var viewMat = new Matrix4();
-  viewMat.setLookAt(g_eye[0], g_eye[1], g_eye[2], g_at[0], g_at[1], g_at[2], g_up[1], g_up[1], g_up[2]);
-  gl.uniformMatrix4fv(u_ViewMatrix, false, viewMat.elements);
+  // var viewMat = new Matrix4();
+  // //viewMat.setLookAt(0,0,3,0,0,-100,0,1,0);
+  // viewMat.setLookAt(g_eye[0], g_eye[1], g_eye[2], g_at[0], g_at[1], g_at[2], g_up[0], g_up[1], g_up[2]);
+  // // viewMat.setLookAt(
+  // //   g_camera.eye.x, g_camera.eye.y, g_camera.eye.z,
+  // //   g_camera.at.x, g_camera.at.y, g_camera.at.z,
+  // //   g_camera.up.x, g_camera.up.y, g_camera.up.z
+  // // );
+  // gl.uniformMatrix4fv(u_ViewMatrix, false, viewMat.elements);
 
   var globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1,0);
   gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
@@ -254,11 +307,26 @@ function renderAllShapes() {
   // Clear <canvas>
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.clear(gl.COLOR_BUFFER_BIT);
+
+  var floor = new Cube();
+  floor.color = [0,1,0,1];
+  floor.textureNum=0;
+  floor.matrix.translate(0,-.75,0);
+  floor.matrix.scale(10,0,10);
+  floor.matrix.translate(-.5,0,.5);
+  floor.render();
+
+  var sky = new Cube();
+  sky.color = [150/255,203/255,1,1];
+  sky.textureNum=-2;
+  sky.matrix.scale(50,50,50);
+  sky.matrix.translate(-.5,-.5,.5);
+  sky.render();
   
 
   var testCube = new Cube();
   testCube.color = [1,0,0,1];
-  testCube.matrix.translate(-.5,-.5,0);
+  testCube.matrix.translate(-.25,-.75,0);
   testCube.render();
 
   //drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
@@ -266,34 +334,3 @@ function renderAllShapes() {
 
   requestAnimationFrame(renderAllShapes);
 }
-
-
-
-/*
-calculating new EYE and AT
-d = at-eye;
-d = d.normalize();
-Forward:
-eye = eye + d
-at = at + d
-backward is same but -d
-
-'A' = left{
-d = at - eye
-left = d x up; (d.cross(up)?)
-}
-for right->switch d to -d for opposite direction
-*/
-
-/*
-Turning:
-atp=dir=at eye
-r = sqrt((dir.x)^2 + (dir.y)^2)
-theta = arctan(dir.y/dir.x);
-theta = theta + angle;
-newx = r*cos(theta);
-newy = r*sin(theta);
-d= (newx, newy);
-AT = eye + d;
-
-*/
