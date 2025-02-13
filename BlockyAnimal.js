@@ -20,6 +20,7 @@ var FSHADER_SOURCE = `
   varying vec2 v_UV;
   uniform vec4 u_FragColor;
   uniform sampler2D u_Sampler0;
+  uniform sampler2D u_Sampler1;
   uniform int u_whichTexture;
   void main() {
 
@@ -31,6 +32,9 @@ var FSHADER_SOURCE = `
 
     } else if(u_whichTexture == 0){
       gl_FragColor = texture2D(u_Sampler0, v_UV);   //use texture0
+
+    } else if(u_whichTexture == 1){
+      gl_FragColor = texture2D(u_Sampler1, v_UV);
       
     } else{
       gl_FragColor = vec4(1, .2, .2, 1.0);   // ERROR reddish color
@@ -49,6 +53,7 @@ let u_GlobalRotateMatrix;
 let u_ViewMatrix;
 let u_ProjectionMatrix;
 let u_Sampler0;
+let u_Sampler1;
 let u_whichTexture;
 
 function setupWebGL() {
@@ -127,6 +132,12 @@ function connectVariablestoGLSL() {
     return;
   }
 
+  u_Sampler1 = gl.getUniformLocation(gl.program, "u_Sampler1");
+  if (!u_Sampler1) {
+    console.log('Failed to get the storage location of u_Sampler1');
+    return;
+  }
+
   u_whichTexture = gl.getUniformLocation(gl.program, "u_whichTexture");
   if(!u_whichTexture){
     console.log('Failed to get the storage location of u_whichTexture');
@@ -163,40 +174,50 @@ function addActionsForHtmlUI(){
      startingMouseX = null;
      renderAllShapes();
     });
+
+    document.addEventListener('mousedown', mouseDown);
+    document.addEventListener('mouseup', mouseUp);
+    document.addEventListener('mousemove', mouseMove);
 }
 
 function initTextures(){
+  const textures = [
+    { src: 'sand.jpg', unit: gl.TEXTURE0, uniform: u_Sampler0 },
+    { src: 'grass.jpg', unit: gl.TEXTURE1, uniform: u_Sampler1 }
+  ];
 
-  var image = new Image();
-  if(!image){
-    console.log('Failed to create image');
-    return;
-  }
+  textures.forEach((textureInfo, index) => {
+    const image = new Image();
+    if (!image) {
+      console.log(`Failed to create image for ${textureInfo.src}`);
+      return;
+    }
 
-  image.onload = function(){ sendTextureToTEXTURE0(image); };
-  image.src = 'sample_wood.jpg';
+    image.onload = function () {
+      sendTextureToUnit(image, textureInfo.unit, textureInfo.uniform);
+    };
+    image.src = textureInfo.src;
+  });
 
-  // Add more texture loading
   return true;
 }
 
-function sendTextureToTEXTURE0(image){
-  var texture = gl.createTexture();
-  if(!texture){
+function sendTextureToUnit(image, textureUnit, samplerUniform) {
+  const texture = gl.createTexture();
+  if (!texture) {
     console.log('Failed to create texture');
     return false;
   }
 
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-  gl.activeTexture(gl.TEXTURE0);
+  gl.activeTexture(textureUnit);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-  gl.uniform1i(u_Sampler0, 0);
-
-  //console.log('Texture loaded');
+  gl.uniform1i(samplerUniform, textureUnit - gl.TEXTURE0);
 }
+
 
 
 let g_camera;
@@ -250,56 +271,121 @@ function keydown(e) {
     case 'E':
       g_camera.panRight();
       break;
+    case 'g':
+    case 'G':
+      g_camera.panUp();
+      break;
+    case 'b':
+    case 'B':
+      g_camera.panDown();
+      break;
   }
-  // TODO: When user hits Q call camera.panLeft()
-  // TODO: When user hits E call camera.panRight()
+
+}
+
+let isMouseDown = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
+function mouseDown(e) {
+  isMouseDown = true;
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+}
+
+function mouseUp() {
+  isMouseDown = false;
+}
+
+function mouseMove(e) {
+  if (!isMouseDown) return;
+
+  // left to right = positive
+  let deltaX = e.clientX - lastMouseX;
+  // bottom top will be negative
+  let deltaY = e.clientY - lastMouseY;
+
+  // Call the camera functions based on mouse movement
+  // switched bc idk why
+  
+  if (deltaX > 0) {
+    g_camera.panLeft(deltaY * 0.1);
+  } else if(deltaX < 0) {
+    g_camera.panRight(deltaY * 0.1);
+  }
+
+  if (deltaY > 0) {
+    g_camera.panDown(deltaX * 0.1);
+  } else if (deltaY < 0) {
+    g_camera.panUp(deltaX * 0.1);
+  }
+  
+
+
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
 }
 
 
+var g_map = [];
+for (let x = 0; x < 32; x++) {
+  g_map[x] = [];
+  for (let y = 0; y < 32; y++) {
+    let height = Math.random() < 0.04 ? 2 : Math.random() < 0.09 ? 1 : 0; // Random dunes
+    g_map[x][y] = height;
+  }
+}
 
 
-var g_map=[
-  
-];
+var cube = new Cube(); // Create the cube once before the loops
 
-function drawMap(){
-  for(x=0;x<32;x++){
-    for(y=0;y<32;y++){
-      if(x<1 || x==31 || y==0 || y==31){
-        var cube = new Cube();
-        cube.color = [1.0, 0.0, 0.0, 1.0];
-        cube.matrix.translate(0,-.75,0);
-        cube.matrix.scale(.5,.5,.5);
-        cube.matrix.translate(x-16, 0, y-16);
-        //cube.renderFast();
+function drawMap() {
+  for (let x = 0; x < 32; x++) {
+    for (let y = 0; y < 32; y++) {
+      let height = g_map[x][y];
+
+      for (let h = 0; h <= height; h++) { // Stack cubes for dunes
+        if(height == 0){
+          cube.textureNum = 1;
+        } else {
+          cube.textureNum = 0;
+        }
+        cube.matrix.setIdentity(); // Reset the transformation matrix to avoid accumulation
+
+        // Apply the transformation for the current tile
+        cube.matrix.translate(x - 16, h * 0.5, y - 16);
+        //cube.matrix.scale(0.5, 0.5, 0.5);
+
+        // Render the cube
+        cube.render();
       }
     }
   }
 
+
 }
 
-var g_eye = [1, 0, 3];
-var g_at = [0, 0, -1000];
-var g_up = [0, 1, 0];
+// Add and remove blocks:
+document.addEventListener("keydown", function (event) {
+  let playerX = Math.floor(g_camera.eye.elements[0] + 16);
+  let playerY = Math.floor(g_camera.eye.elements[2] + 16);
+
+  if (playerX >= 0 && playerX < 32 && playerY >= 0 && playerY < 32) {
+    if (event.key === "t" || event.key === "T") { // Add block
+      if (g_map[playerX][playerY] < 3) g_map[playerX][playerY]++;
+    }
+    if (event.key === "r" || event.key === "R") { // Remove block
+      if (g_map[playerX][playerY] > 0) g_map[playerX][playerY]--;
+    }
+  } else {
+    console.log("Player is out of map bounds:", playerX, playerY);
+  }
+  
+});
+
+
 
 function renderAllShapes() {
-  //console.log("Rendering all shapes");
-
-  //var startTime = performance.now();
-  // var projMat = new Matrix4();
-  // // first num: fov essentially
-  // projMat.setPerspective(60, canvas.width/canvas.height, .1, 100);
-  // gl.uniformMatrix4fv(u_ProjectionMatrix, false, projMat.elements);
-
-  // var viewMat = new Matrix4();
-  // //viewMat.setLookAt(0,0,3,0,0,-100,0,1,0);
-  // viewMat.setLookAt(g_eye[0], g_eye[1], g_eye[2], g_at[0], g_at[1], g_at[2], g_up[0], g_up[1], g_up[2]);
-  // // viewMat.setLookAt(
-  // //   g_camera.eye.x, g_camera.eye.y, g_camera.eye.z,
-  // //   g_camera.at.x, g_camera.at.y, g_camera.at.z,
-  // //   g_camera.up.x, g_camera.up.y, g_camera.up.z
-  // // );
-  // gl.uniformMatrix4fv(u_ViewMatrix, false, viewMat.elements);
+  var startTime = performance.now();
 
   var globalRotMat = new Matrix4().rotate(g_globalAngle, 0, 1,0);
   gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotMat.elements);
@@ -310,9 +396,9 @@ function renderAllShapes() {
 
   var floor = new Cube();
   floor.color = [0,1,0,1];
-  floor.textureNum=0;
-  floor.matrix.translate(0,-.75,0);
-  floor.matrix.scale(10,0,10);
+  floor.textureNum=-2;
+  floor.matrix.translate(0,0,0);
+  floor.matrix.scale(16,0,16);
   floor.matrix.translate(-.5,0,.5);
   floor.render();
 
@@ -324,13 +410,20 @@ function renderAllShapes() {
   sky.render();
   
 
-  var testCube = new Cube();
-  testCube.color = [1,0,0,1];
-  testCube.matrix.translate(-.25,-.75,0);
-  testCube.render();
+  drawMap();
 
-  //drawTriangle3D([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
-  //drawTriangle([0.0, 0.0, -0.5,  1.0, 0.0, -0.5,  0.5, 1.0, -0.5]);
 
   requestAnimationFrame(renderAllShapes);
+
+  var duration = performance.now() - startTime;
+  sendTextToHtml(' fps: ' + Math.floor(1000 / duration)/10, "numdot");
+}
+
+function sendTextToHtml(text, htmlID) {
+  var htmlElm = document.getElementById(htmlID);
+  if(!htmlElm){
+    console.log('No html element with id=' + htmlID);
+    return;
+  }
+  htmlElm.innerHTML = text;
 }

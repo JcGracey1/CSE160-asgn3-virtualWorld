@@ -4,7 +4,7 @@ class Camera{
         this.movementSpeed = 0.5;
         this.alpha = .5;
 
-        this.eye=new Vector3([0,0,3]);
+        this.eye=new Vector3([0,2,3]);
         this.at=new Vector3([0,0,-100]);
         this.up=new Vector3([0,1,0]);
 
@@ -55,11 +55,15 @@ class Camera{
         this.updateView();
     }
 
-    panLeft(){
+    panLeft(deltaX) {
         var d = new Vector3(this.at.elements);
         d.sub(this.eye);
         var rotationMatrix = new Matrix4();
-        rotationMatrix.setRotate(this.alpha, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        if(deltaX){
+         rotationMatrix.setRotate(deltaX * 0.08, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        } else{
+         rotationMatrix.setRotate(this.alpha, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        }
         var f_prime = new Matrix4();
         f_prime = rotationMatrix.multiplyVector3(d);
         var eye = new Vector3(this.eye.elements);
@@ -67,13 +71,58 @@ class Camera{
         this.updateView();
     }
 
-    panRight(){
+    panRight(deltaX) {
         var d = new Vector3(this.at.elements);
         d.sub(this.eye);
         var rotationMatrix = new Matrix4();
-        rotationMatrix.setRotate(-this.alpha, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        if(deltaX){
+         rotationMatrix.setRotate(-deltaX * 0.08, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        } else{
+         rotationMatrix.setRotate(-this.alpha, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+        }
         var f_prime = new Matrix4();
         f_prime = rotationMatrix.multiplyVector3(d);
+        var eye = new Vector3(this.eye.elements);
+        this.at = eye.add(f_prime);
+        this.updateView();
+    }
+    
+    panUp(deltaY) {
+        var d = new Vector3(this.at.elements);
+        d.sub(this.eye);
+        
+        var right = new Vector3();
+        right = Vector3.cross(this.up, d); // Right vector = Up vector x (At - Eye)
+        
+        var rotationMatrix = new Matrix4();
+        if(deltaY){
+            rotationMatrix.setRotate(-deltaY * 0.1, right.elements[0], right.elements[1], right.elements[2]);
+        } else{
+            rotationMatrix.setRotate(-this.alpha, right.elements[0], right.elements[1], right.elements[2]);
+        }
+        var f_prime = rotationMatrix.multiplyVector3(d);
+        
+        var eye = new Vector3(this.eye.elements);
+        this.at = eye.add(f_prime);
+        this.updateView();
+    }
+
+    panDown(deltaY) {
+        var d = new Vector3(this.at.elements);
+        d.sub(this.eye);
+        
+        // Rotate around the right vector (cross product of up and forward vectors)
+        var right = new Vector3();
+        right = Vector3.cross(this.up, d); // Right vector = Up vector x (At - Eye)
+        
+        var rotationMatrix = new Matrix4();
+        if(deltaY){
+            rotationMatrix.setRotate(deltaY * 0.1, right.elements[0], right.elements[1], right.elements[2]);
+        } else{
+            rotationMatrix.setRotate(this.alpha, right.elements[0], right.elements[1], right.elements[2]);
+        }
+        var f_prime = rotationMatrix.multiplyVector3(d);
+        
         var eye = new Vector3(this.eye.elements);
         this.at = eye.add(f_prime);
         this.updateView();
