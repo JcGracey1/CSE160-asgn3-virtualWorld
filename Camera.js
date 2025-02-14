@@ -60,7 +60,7 @@ class Camera{
         d.sub(this.eye);
         var rotationMatrix = new Matrix4();
         if(deltaX){
-         rotationMatrix.setRotate(deltaX * 0.08, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+         rotationMatrix.setRotate(deltaX * 0.1, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
         } else{
          rotationMatrix.setRotate(this.alpha, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
         }
@@ -76,7 +76,7 @@ class Camera{
         d.sub(this.eye);
         var rotationMatrix = new Matrix4();
         if(deltaX){
-         rotationMatrix.setRotate(-deltaX * 0.08, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
+         rotationMatrix.setRotate(-deltaX * 0.1, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
         } else{
          rotationMatrix.setRotate(-this.alpha, this.up.elements[0], this.up.elements[1], this.up.elements[2]);
         }

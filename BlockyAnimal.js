@@ -21,6 +21,9 @@ var FSHADER_SOURCE = `
   uniform vec4 u_FragColor;
   uniform sampler2D u_Sampler0;
   uniform sampler2D u_Sampler1;
+  uniform sampler2D u_Sampler2;
+  uniform sampler2D u_Sampler3;
+
   uniform int u_whichTexture;
   void main() {
 
@@ -35,6 +38,12 @@ var FSHADER_SOURCE = `
 
     } else if(u_whichTexture == 1){
       gl_FragColor = texture2D(u_Sampler1, v_UV);
+
+    } else if(u_whichTexture == 2){
+      gl_FragColor = texture2D(u_Sampler2, v_UV);
+    
+    } else if(u_whichTexture == 3){
+      gl_FragColor = texture2D(u_Sampler3, v_UV);
       
     } else{
       gl_FragColor = vec4(1, .2, .2, 1.0);   // ERROR reddish color
@@ -54,6 +63,8 @@ let u_ViewMatrix;
 let u_ProjectionMatrix;
 let u_Sampler0;
 let u_Sampler1;
+let u_Sampler2;
+let u_Sampler3;
 let u_whichTexture;
 
 function setupWebGL() {
@@ -138,6 +149,18 @@ function connectVariablestoGLSL() {
     return;
   }
 
+  u_Sampler2 = gl.getUniformLocation(gl.program, "u_Sampler2");
+  if (!u_Sampler2) {
+    console.log('Failed to get the storage location of u_Sampler2');
+    return;
+  }
+
+  u_Sampler3 = gl.getUniformLocation(gl.program, "u_Sampler3");
+  if (!u_Sampler3) {
+    console.log('Failed to get the storage location of u_Sampler3');
+    return;
+  }
+
   u_whichTexture = gl.getUniformLocation(gl.program, "u_whichTexture");
   if(!u_whichTexture){
     console.log('Failed to get the storage location of u_whichTexture');
@@ -163,10 +186,7 @@ let g_globalAngle = 0;
 
 function addActionsForHtmlUI(){
 
-  // document.getElementById('jointSlide').addEventListener('mousemove', function() { g_jointAngle = this.value; renderAllShapes();});
-  // document.getElementById('headSlide').addEventListener('mousemove', function() { g_headAngle = this.value; renderAllShapes();});
-  // // // size slider events
-  // document.getElementById('sizeSlide').addEventListener('mouseup', function() { g_selectedSize = this.value;});
+  document.getElementById('reset').addEventListener('click', function() { map = generateMap(); });
 
   //angle slider:
   document.getElementById('angleSlide').addEventListener('mousemove', function() {
@@ -182,8 +202,10 @@ function addActionsForHtmlUI(){
 
 function initTextures(){
   const textures = [
-    { src: 'sand.jpg', unit: gl.TEXTURE0, uniform: u_Sampler0 },
-    { src: 'grass.jpg', unit: gl.TEXTURE1, uniform: u_Sampler1 }
+    { src: 'water.jpg', unit: gl.TEXTURE0, uniform: u_Sampler0 },
+    { src: 'mossy_stone.jpg', unit: gl.TEXTURE1, uniform: u_Sampler1 },
+    { src: 'stone.jpg', unit: gl.TEXTURE2, uniform: u_Sampler2 },
+    { src: 'grass.jpg', unit: gl.TEXTURE3, uniform: u_Sampler3 },
   ];
 
   textures.forEach((textureInfo, index) => {
@@ -299,91 +321,299 @@ function mouseUp() {
 function mouseMove(e) {
   if (!isMouseDown) return;
 
-  // left to right = positive
   let deltaX = e.clientX - lastMouseX;
-  // bottom top will be negative
   let deltaY = e.clientY - lastMouseY;
 
-  // Call the camera functions based on mouse movement
-  // switched bc idk why
-  
-  if (deltaX > 0) {
-    g_camera.panLeft(deltaY * 0.1);
-  } else if(deltaX < 0) {
-    g_camera.panRight(deltaY * 0.1);
+  // Horizontal movement controls left/right panning.
+  if (deltaX !== 0) {
+    if (deltaX > 0) {
+      g_camera.panLeft(deltaX);
+    } else {
+      g_camera.panRight(-deltaX);
+    }
   }
 
-  if (deltaY > 0) {
-    g_camera.panDown(deltaX * 0.1);
-  } else if (deltaY < 0) {
-    g_camera.panUp(deltaX * 0.1);
+  // Vertical movement controls up/down panning.
+  if (deltaY !== 0) {
+    if (deltaY > 0) {
+      g_camera.panDown(deltaY);
+    } else {
+      g_camera.panUp(-deltaY);
+    }
   }
-  
-
 
   lastMouseX = e.clientX;
   lastMouseY = e.clientY;
 }
 
+let redBlock;
+function generateMap() {
+  const size = 40;
+  let map = Array.from({ length: size }, () => Array(size).fill(0));
 
-var g_map = [];
-for (let x = 0; x < 32; x++) {
-  g_map[x] = [];
-  for (let y = 0; y < 32; y++) {
-    let height = Math.random() < 0.04 ? 2 : Math.random() < 0.09 ? 1 : 0; // Random dunes
-    g_map[x][y] = height;
+  // Step 1: Generate Water
+  generateWater(map, size);
+
+  // Step 2: Place Mossy Stones
+  placeMossyStones(map, size);
+
+  // Step 3: Generate Boulders
+  placeBoulders(map, size);
+
+  // Step 4: Adjust Ground Elevation
+  smoothGround(map, size);
+
+  redBlock = placeRedBlock(map, size);
+
+  return map;
+}
+
+function placeRedBlock(map, size) {
+  let attempts = 0;
+  let x, z;
+  do {
+    x = Math.floor(Math.random() * size);
+    z = Math.floor(Math.random() * size);
+    attempts++;
+    if (attempts > 100) break;
+  } while (map[x][z] === -1 || map[x][z] >= 10);
+  let redBlockHeight = map[x][z] + 1;
+  return { x: x, z: z, height: redBlockHeight };
+}
+
+// chat gpt used for generate
+
+function generateWater(map, size) {
+  const waterBodies = 2 + Math.floor(Math.random() * 3); // 2-4 water bodies
+  for (let i = 0; i < waterBodies; i++) {
+    let centerX = Math.floor(Math.random() * (size - 6)) + 3;
+    let centerZ = Math.floor(Math.random() * (size - 6)) + 3;
+    let radius = 2 + Math.floor(Math.random() * 3); // Minimum radius of 2
+
+    for (let x = centerX - radius; x <= centerX + radius; x++) {
+      for (let z = centerZ - radius; z <= centerZ + radius; z++) {
+        if (x >= 0 && x < size && z >= 0 && z < size) {
+          const dist = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
+          if (dist <= radius) map[x][z] = -1; // -1 represents water
+        }
+      }
+    }
+  }
+}
+
+// Place mossy stones near water
+function placeMossyStones(map, size) {
+  for (let x = 0; x < size; x++) {
+    for (let z = 0; z < size; z++) {
+      if (map[x][z] === -1) {
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dz = -2; dz <= 2; dz++) {
+            let nx = x + dx;
+            let nz = z + dz;
+            if (
+              nx >= 0 &&
+              nx < size &&
+              nz >= 0 &&
+              nz < size &&
+              map[nx][nz] === 0
+            ) {
+              // 50% chance for elevated (value 2) vs. ground-level (value 4)
+              if (Math.random() < 0.5) {
+                map[nx][nz] = 2; // Elevated mossy stone (draws 2 blocks)
+              } else {
+                map[nx][nz] = 4; // Ground-level mossy stone (draws only 1 block)
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 
 
-var cube = new Cube(); // Create the cube once before the loops
+// Generate boulders in clusters
+function placeBoulders(map, size) {
+  // Pick a few clusters to add.
+  const clusterCount = 5 + Math.floor(Math.random() * 3); // 5 to 7 clusters
+  for (let i = 0; i < clusterCount; i++) {
+    // Pick a random center that is not water.
+    let centerX = Math.floor(Math.random() * size);
+    let centerZ = Math.floor(Math.random() * size);
+    if (map[centerX][centerZ] === -1) continue; // skip water
 
-function drawMap() {
-  for (let x = 0; x < 32; x++) {
-    for (let y = 0; y < 32; y++) {
-      let height = g_map[x][y];
+    // Choose a random boulder size between 1 and 3 (core size).
+    let boulderWidth = 1 + Math.floor(Math.random() * 3);
+    let startX = centerX - Math.floor(boulderWidth / 2);
+    let startZ = centerZ - Math.floor(boulderWidth / 2);
 
-      for (let h = 0; h <= height; h++) { // Stack cubes for dunes
-        if(height == 0){
-          cube.textureNum = 1;
-        } else {
-          cube.textureNum = 0;
+    // Choose a random core height between 2 and 5.
+    let coreHeight = 2 + Math.floor(Math.random() * 4); // possible values: 2, 3, 4, or 5
+    // Set border height to one less than core (but at least 1).
+    let borderHeight = (coreHeight > 2) ? coreHeight - 1 : coreHeight;
+    
+    // We add 10 to flag boulder cells so they don't conflict with ground/mossy stone.
+    let boulderCore = 10 + coreHeight;
+    let boulderBorder = 10 + borderHeight;
+    
+    // Place the core blocks of the boulder.
+    for (let x = startX; x < startX + boulderWidth; x++) {
+      for (let z = startZ; z < startZ + boulderWidth; z++) {
+        if (x >= 0 && x < size && z >= 0 && z < size) {
+          if (map[x][z] !== -1) { // skip water
+            map[x][z] = boulderCore;
+          }
         }
-        cube.matrix.setIdentity(); // Reset the transformation matrix to avoid accumulation
+      }
+    }
+    
+    // Now add a surrounding border that is 1 unit tall (using boulderBorder).
+    // This border will smooth the boulder by extending its appearance a bit.
+    for (let x = startX - 1; x <= startX + boulderWidth; x++) {
+      for (let z = startZ - 1; z <= startZ + boulderWidth; z++) {
+        // Skip the core.
+        if (x >= startX && x < startX + boulderWidth && z >= startZ && z < startZ + boulderWidth)
+          continue;
+        if (x >= 0 && x < size && z >= 0 && z < size) {
+          if (map[x][z] !== -1) { // avoid water
+            // Set the cell to the border height if it isn't already higher.
+            map[x][z] = Math.max(map[x][z], boulderBorder);
+          }
+        }
+      }
+    }
+  }
+}
 
-        // Apply the transformation for the current tile
-        cube.matrix.translate(x - 16, h * 0.5, y - 16);
-        //cube.matrix.scale(0.5, 0.5, 0.5);
 
-        // Render the cube
+
+
+
+// Smooth ground elevation
+function smoothGround(map, size) {
+  for (let x = 1; x < size - 1; x++) {
+    for (let z = 1; z < size - 1; z++) {
+      if (map[x][z] === 0) { // smooth only ground cells
+        let sum = 0;
+        let count = 0;
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            let nx = x + dx;
+            let nz = z + dz;
+            if (map[nx][nz] === 0) {
+              sum += map[nx][nz];
+              count++;
+            }
+          }
+        }
+        let avg = Math.round(sum / count);
+        map[x][z] = Math.min(avg, map[x][z] + 1);
+      }
+    }
+  }
+  // Ensure water stays at height -1.
+  for (let x = 0; x < size; x++) {
+    for (let z = 0; z < size; z++) {
+      if (map[x][z] === -1) {
+        map[x][z] = -1;
+      }
+    }
+  }
+}
+
+
+
+var cube = new Cube();
+function renderMap(map, size) {
+  for (let x = 0; x < size; x++) {
+    for (let z = 0; z < size; z++) {
+      let rawValue = map[x][z];
+      let texture;
+      let height;
+      
+      if (rawValue === -1) {
+        texture = 0; // Water
+        height = 0;
+      } else if (rawValue >= 10) {
+        texture = 2; // Stone boulder
+        height = rawValue - 10; // actual boulder height (between 2 and 5, or border height)
+      } else if (rawValue === 2) {
+        texture = 1; // Elevated mossy stone
+        height = rawValue;
+      } else if (rawValue === 4) {
+        texture = 1; // Ground-level mossy stone uses the same texture; draw one cube only.
+        height = 0;
+      } else {
+        texture = 3; // Ground
+        height = rawValue;
+      }
+      
+      for (let h = 0; h <= height; h++) {
+        cube.textureNum = texture;
+        cube.matrix.setIdentity();
+        cube.matrix.translate(x - size / 2, h * 0.5, z - size / 2);
         cube.render();
       }
     }
   }
-
-
 }
+
+
 
 // Add and remove blocks:
 document.addEventListener("keydown", function (event) {
-  let playerX = Math.floor(g_camera.eye.elements[0] + 16);
-  let playerY = Math.floor(g_camera.eye.elements[2] + 16);
+  // Get the eye and at positions.
+  let eye = g_camera.eye.elements;  // [x, y, z]
+  let at = g_camera.at.elements;    // [x, y, z]
+  
+  // Compute the direction vector (normalize it).
+  let dir = new Vector3(at);
+  dir.sub(new Vector3(eye));
+  dir.normalize();
+  
+  // Compute t such that the ray intersects the ground (y = 0).
+  let groundY = 0;
+  if (Math.abs(dir.elements[1]) < 0.0001) return; // avoid division by zero
+  
+  let t = (groundY - eye[1]) / dir.elements[1];
+  
+  // Compute intersection point on the ground.
+  let intersectX = eye[0] + t * dir.elements[0];
+  let intersectZ = eye[2] + t * dir.elements[2];
+  
+  // Convert to map indices.
+  // Assuming your map is 40x40 and centered, we add 20.
+  let mapSize = 40;
+  let targetX = Math.round(intersectX + mapSize / 2);
+  let targetZ = Math.round(intersectZ + mapSize / 2);
 
-  if (playerX >= 0 && playerX < 32 && playerY >= 0 && playerY < 32) {
+  // Optional: Log for debugging.
+  // console.log("Target cell:", targetX, targetZ, "Block value:", map[targetX] && map[targetX][targetZ]);
+  
+  // Check bounds and then add/remove block.
+  if (targetX >= 0 && targetX < mapSize && targetZ >= 0 && targetZ < mapSize) {
     if (event.key === "t" || event.key === "T") { // Add block
-      if (g_map[playerX][playerY] < 3) g_map[playerX][playerY]++;
+      if (map[targetX][targetZ] < 3) {
+        map[targetX][targetZ]++;
+        console.log("Added block at:", targetX, targetZ, "New value:", map[targetX][targetZ]);
+      }
     }
     if (event.key === "r" || event.key === "R") { // Remove block
-      if (g_map[playerX][playerY] > 0) g_map[playerX][playerY]--;
+      if (map[targetX][targetZ] > 0) {
+        map[targetX][targetZ]--;
+        console.log("Removed block at:", targetX, targetZ, "New value:", map[targetX][targetZ]);
+      }
     }
   } else {
-    console.log("Player is out of map bounds:", playerX, playerY);
+    console.log("Target is out of map bounds:", targetX, targetZ);
   }
-  
 });
 
 
 
+
+
+let map = generateMap();
 function renderAllShapes() {
   var startTime = performance.now();
 
@@ -405,12 +635,22 @@ function renderAllShapes() {
   var sky = new Cube();
   sky.color = [150/255,203/255,1,1];
   sky.textureNum=-2;
-  sky.matrix.scale(50,50,50);
+  sky.matrix.scale(55,55,55);
   sky.matrix.translate(-.5,-.5,.5);
   sky.render();
-  
 
-  drawMap();
+  renderMap(map, 40);
+
+  if (redBlock) {
+    let cubeRed = new Cube();
+    cubeRed.textureNum = -2;  // Use solid color
+    cubeRed.color = [1, 0, 0, 1]; // red
+    cubeRed.matrix.setIdentity();
+    cubeRed.matrix.translate(redBlock.x - 20, redBlock.height * 0.5 +.5, redBlock.z - 20);
+    // Scale down the cube.
+    cubeRed.matrix.scale(0.5, 0.5, 0.5);
+    cubeRed.render();
+  }
 
 
   requestAnimationFrame(renderAllShapes);
